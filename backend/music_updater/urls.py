@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/jobs/', views.jobs_list),
     path('api/jobs/<int:pk>/', views.job_detail),
     path('api/jobs/manual/', views.manual_download),
+    path('api/search-media/', views.search_media_view),
     path('api/jobs/cron/', views.trigger_cron),
     path('api/scheduler/', views.scheduler_info_view),
     path('api/scheduler/trigger/', views.trigger_task_view),

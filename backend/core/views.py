@@ -220,6 +220,17 @@ def manual_download(request):
     threading.Thread(target=_run_manual_job, args=(job.id, url, allow_playlist), daemon=True).start()
     return Response(DownloadJobSerializer(job).data, status=201)
 
+@api_view(["GET"])
+def search_media_view(request):
+    q = request.query_params.get("q")
+    if not q: return Response({"error": "Query required"}, status=400)
+    from .music_engine import search_media
+    try:
+        results = search_media(q)
+        return Response(results)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
 def _run_manual_job(job_id, url, allow_playlist):
     from .music_engine import download_url, register_songs, navidrome_rescan
     try:

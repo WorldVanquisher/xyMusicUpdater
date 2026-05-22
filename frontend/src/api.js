@@ -26,6 +26,7 @@ export const api = {
   deleteSong: (id) => instance.delete(`/songs/${id}/`).then(r => r.data),
   getUpcomingPurges: () => instance.get('/purge/upcoming/').then(r => r.data),
   searchMusicBrainz: (q) => instance.get('/musicbrainz/search/', { params: { q } }).then(r => r.data),
+  searchMedia: (q) => instance.get('/search-media/', { params: { q } }).then(r => r.data),
   autoTagAll: () => instance.post('/songs/auto-tag-all/').then(r => r.data),
   confirmTags: (ids) => instance.post('/songs/confirm-tags/', { ids }).then(r => r.data),
   rejectTags: (ids) => instance.post('/songs/reject-tags/', { ids }).then(r => r.data),

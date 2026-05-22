@@ -1,31 +1,69 @@
 import React, { useState } from 'react';
 import { api } from '../api';
+import { Download, Search } from 'lucide-react';
 
 export const ManualDownload = ({ onJobStarted }) => {
-  const [url, setUrl] = useState('');
+  const [inputVal, setInputVal] = useState('');
   const [allowPlaylist, setAllowPlaylist] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!url) return;
-    await api.manualDownload(url, allowPlaylist);
-    setUrl('');
+    if (!inputVal) return;
+    
+    if (inputVal.startsWith('http://') || inputVal.startsWith('https://')) {
+      // Direct Download
+      await api.manualDownload(inputVal, allowPlaylist);
+      setInputVal('');
+      setSearchResults([]);
+      onJobStarted();
+    } else {
+      // Search
+      setIsSearching(true);
+      setSearchResults([]);
+      try {
+        const results = await api.searchMedia(inputVal);
+        setSearchResults(results || []);
+      } catch (err) {
+        alert("Search failed: " + err.message);
+      } finally {
+        setIsSearching(false);
+      }
+    }
+  };
+
+  const triggerDownload = async (targetUrl, forcePlaylist = false) => {
+    await api.manualDownload(targetUrl, forcePlaylist || allowPlaylist);
+    setInputVal('');
+    setSearchResults([]);
     onJobStarted();
   };
 
+  const formatTime = (sec) => {
+    if (!sec) return '--:--';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const isUrl = inputVal.startsWith('http://') || inputVal.startsWith('https://');
+
   return (
     <div>
-      <div style={{ marginBottom: 10, fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Manual Download</div>
+      <div style={{ marginBottom: 10, fontWeight: 700, fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Manual Download / Search</div>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', gap: 10 }}>
           <input 
             type="text" 
-            value={url} 
-            onChange={(e) => setUrl(e.target.value)} 
-            placeholder="YouTube/SoundCloud URL" 
+            value={inputVal} 
+            onChange={(e) => setInputVal(e.target.value)} 
+            placeholder="Paste URL or type keywords to search YouTube..." 
             style={{ flex: 1, padding: '8px 12px', borderRadius: 4, border: '1px solid var(--border)', background: '#1c1c21', color: '#fff' }}
           />
-          <button type="submit" style={{ padding: '8px 16px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Download</button>
+          <button type="submit" disabled={isSearching} style={{ padding: '8px 16px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isSearching ? '...' : (isUrl ? <><Download size={14}/> Download</> : <><Search size={14}/> Search</>)}
+          </button>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-dim)', cursor: 'pointer' }}>
           <input 
@@ -36,6 +74,32 @@ export const ManualDownload = ({ onJobStarted }) => {
           Enable whole playlist download
         </label>
       </form>
+
+      {searchResults.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 15 }}>
+          {searchResults.map((res, i) => (
+             <div key={i} style={{ display: 'flex', gap: 12, padding: 10, background: 'var(--surface)', borderRadius: 6, alignItems: 'center' }}>
+                <div style={{ width: 80, height: 45, background: '#000', borderRadius: 4, overflow: 'hidden' }}>
+                  {res.thumbnail && <img src={res.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                   <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{res.title}</div>
+                   <div style={{ color: 'var(--text-dim)', fontSize: 11 }}>{res.uploader} • {formatTime(res.duration)}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => triggerDownload(res.url)} style={{ padding: '6px 12px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Download size={12}/> Fetch
+                  </button>
+                  {res.id && res.url && res.url.includes('youtube.com') && (
+                    <button onClick={() => triggerDownload(`https://www.youtube.com/watch?v=${res.id}&list=RD${res.id}`, true)} style={{ padding: '6px 12px', borderRadius: 4, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }} title="Download YouTube Mix (Radio) for this song">
+                      <Download size={12}/> Fetch Mix
+                    </button>
+                  )}
+                </div>
+             </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
