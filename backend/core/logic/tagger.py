@@ -254,14 +254,19 @@ def get_compilation_candidates() -> List[Dict[str, Any]]:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            # Find albums with multiple artists that don't already have 'Various Artists'
-            # Use lower() for case-insensitive grouping
+            # Find albums with:
+            # 1. More than one unique artist (case-insensitive)
+            # 2. OR at least one song having 'Various Artists' while others don't
             query = """
-            SELECT lower(album) as lower_album, count(distinct lower(artist)) as artist_count 
+            SELECT lower(album) as lower_album, 
+                   count(distinct lower(artist)) as artist_count,
+                   max(CASE WHEN album_artist = 'Various Artists' THEN 1 ELSE 0 END) as has_va,
+                   min(CASE WHEN album_artist = 'Various Artists' OR album_artist IS NULL OR album_artist = '' THEN 0 ELSE 1 END) as has_non_va
             FROM media_file 
-            WHERE missing=0 AND album != '' AND (album_artist IS NULL OR album_artist != 'Various Artists')
+            WHERE missing=0 AND album != ''
             GROUP BY lower_album 
-            HAVING artist_count > 1
+            HAVING (artist_count > 1) 
+               OR (has_va = 1 AND has_non_va = 1)
             """
             cursor.execute(query)
             album_summaries = cursor.fetchall()
@@ -269,25 +274,35 @@ def get_compilation_candidates() -> List[Dict[str, Any]]:
             for row in album_summaries:
                 lower_album = row['lower_album']
                 # Fetch songs for this album (case-insensitive)
+                # We want ALL songs of this album to allow the user to unify them
                 cursor.execute("SELECT id, title, artist, album, album_artist, path FROM media_file WHERE lower(album) = ? AND missing=0", (lower_album,))
                 songs = []
-                # Use the album name from the first song as the "canonical" display name
                 display_album_name = ""
+                already_fully_va = True
+                
                 for s in cursor.fetchall():
                     if not display_album_name:
                         display_album_name = s['album']
+                    
+                    if s['album_artist'] != 'Various Artists':
+                        already_fully_va = False
+                        
                     songs.append({
                         "nd_id": s['id'],
                         "title": s['title'],
                         "artist": s['artist'],
                         "album": s['album'],
+                        "album_artist": s['album_artist'],
                         "path": unquote(s['path'])
                     })
-                candidates.append({
-                    "album": display_album_name,
-                    "artist_count": row['artist_count'],
-                    "songs": songs
-                })
+                
+                # Only add as candidate if it's not already 100% unified as Various Artists
+                if not already_fully_va:
+                    candidates.append({
+                        "album": display_album_name,
+                        "artist_count": row['artist_count'],
+                        "songs": songs
+                    })
     except Exception as e:
         emit(f"Error finding compilation candidates: {e}", level="error")
         

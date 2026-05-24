@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
 import { ScrollingText } from './ScrollingText';
+import defaultCover from '../assets/default-cover.svg';
 
 export const CompilationMergePanel = ({ notify }) => {
   const { t } = useTranslation();
@@ -135,7 +136,7 @@ export const CompilationMergePanel = ({ notify }) => {
                   <img 
                     src={`/api/nd-cover/${song.nd_id}/`} 
                     style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover', background: '#333', flexShrink: 0 }}
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/40?text=?'; }}
+                    onError={(e) => { e.target.src = defaultCover; }}
                   />
                   <div style={{ overflow: 'hidden', flex: 1 }}>
                     <ScrollingText text={song.title} style={{ fontSize: 13, fontWeight: 600 }} />
