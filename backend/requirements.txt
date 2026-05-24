@@ -7,3 +7,11 @@ musicbrainzngs
 apscheduler
 yt-dlp
 whitenoise
+pytest
+pytest-django
+pytest-mock
+mypy
+types-requests
+types-setuptools
+django-stubs
+djangorestframework-stubs

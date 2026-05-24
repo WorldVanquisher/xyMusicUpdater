@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Music, ChevronDown, ChevronRight, Archive } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ScrollingText } from './ScrollingText';
 
 export const SongTable = ({ songs, playlistMap = {} }) => {
   const { t } = useTranslation();
@@ -28,9 +29,9 @@ export const SongTable = ({ songs, playlistMap = {} }) => {
             <span style={{ color: 'var(--green)' }}>{t('song_table.ready')}</span>
           )}
         </td>
-        <td style={tdStyle}>
-          <div style={{ fontWeight: 600 }}>{song.title || song.filename}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{song.artist}</div>
+        <td style={{ ...tdStyle, maxWidth: 280 }}>
+          <ScrollingText text={song.title || song.filename} style={{ fontWeight: 600 }} />
+          <ScrollingText text={song.artist} style={{ fontSize: 11, color: 'var(--text-dim)' }} />
         </td>
         <td style={tdStyle}>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>

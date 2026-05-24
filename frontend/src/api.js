@@ -34,4 +34,6 @@ export const api = {
   cleanupHistory: (days) => instance.post('/songs/cleanup-history/', { days }).then(r => r.data),
   getSchedulerInfo: () => instance.get('/scheduler/').then(r => r.data),
   triggerSchedulerTask: (task_id) => instance.post('/scheduler/trigger/', { task_id }).then(r => r.data),
+  getCompilationCandidates: () => instance.get('/compilation/candidates/').then(r => r.data),
+  mergeCompilation: (ids) => instance.post('/compilation/merge/', { ids }).then(r => r.data),
 };

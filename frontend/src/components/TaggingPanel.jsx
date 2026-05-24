@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
+import { ScrollingText } from './ScrollingText';
 
 const inputStyle = { padding: '6px 10px', borderRadius: 4, border: '1px solid var(--border)', background: '#0a0a0c', color: '#fff' };
 const editBtnStyle = { padding: '4px 12px', borderRadius: 4, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer' };
@@ -195,10 +196,10 @@ export const TaggingPanel = ({ songs, playlistMap = {}, onUpdate, notify }) => {
             padding: (pls.length > 0 || s.pending_confirmation) ? '10px' : '0px',
             borderRadius: 4
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontWeight: 600 }}>
-                {s.filename}
-                {s.pending_confirmation && <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--green)', border: '1px solid var(--green)', padding: '2px 4px', borderRadius: 4 }}>{t('tagging.draft_ready')}</span>}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 16 }}>
+              <div style={{ fontWeight: 600, overflow: 'hidden', flex: 1 }}>
+                <ScrollingText text={s.filename} />
+                {s.pending_confirmation && <span style={{ display: 'inline-block', marginTop: 4, fontSize: 10, color: 'var(--green)', border: '1px solid var(--green)', padding: '2px 4px', borderRadius: 4 }}>{t('tagging.draft_ready')}</span>}
               </div>
               {pls.length > 0 && (
                 <div style={{ background: 'var(--accent)', color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 4, fontWeight: 800 }}>

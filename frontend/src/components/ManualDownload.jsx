@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../api';
 import { Download, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ScrollingText } from './ScrollingText';
 
 export const ManualDownload = ({ onJobStarted }) => {
   const { t } = useTranslation();
@@ -95,9 +96,12 @@ export const ManualDownload = ({ onJobStarted }) => {
                 <div style={{ width: 80, height: 45, background: '#000', borderRadius: 4, overflow: 'hidden' }}>
                   {res.thumbnail && <img src={res.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" />}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                   <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{res.title}</div>
-                   <div style={{ color: 'var(--text-dim)', fontSize: 11 }}>{res.uploader} • {formatTime(res.duration)}</div>
+                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                   <ScrollingText text={res.title} style={{ fontWeight: 600, fontSize: 13 }} />
+                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                     <ScrollingText text={res.uploader} style={{ color: 'var(--text-dim)', fontSize: 11, flex: 1 }} />
+                     <span style={{ color: 'var(--text-dim)', fontSize: 11, flexShrink: 0 }}>• {formatTime(res.duration)}</span>
+                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => triggerDownload(res.url)} style={{ padding: '6px 12px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>

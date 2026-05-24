@@ -22,14 +22,14 @@ class CoreConfig(AppConfig):
             return
 
         if os.environ.get('RUN_MAIN') == 'true' or not settings.DEBUG:
-            from .music_engine import retry_interrupted_jobs
+            from .logic import retry_interrupted_jobs
             retry_interrupted_jobs()
             self.start_scheduler()
 
     def start_scheduler(self):
         from apscheduler.schedulers.background import BackgroundScheduler
         from .tasks import scheduled_pipeline
-        from .music_engine import run_single_subscription, _cfg
+        from .logic import run_single_subscription, _cfg
         from .models import SearchSubscription
         
         if self._scheduler:

@@ -13,7 +13,17 @@ const resources = {
         "job_history": "Job History",
         "scheduler": "Scheduler",
         "purge_analysis": "Purge Analysis",
+        "compilation_merge": "Compilation Merge",
         "settings": "Settings"
+      },
+      "compilation": {
+        "title": "Compilation Album Merge",
+        "desc": "Found albums with multiple artists. Merge them to 'Various Artists' for better organization.",
+        "merge_selected": "Merge Selected as 'Various Artists'",
+        "discard": "Discard Suggestion",
+        "no_candidates": "No compilation candidates found.",
+        "loading": "Scanning library for compilations...",
+        "items_merged": "Successfully merged {{count}} tracks."
       },
       "library": {
         "song_library": "Song Library",
@@ -21,6 +31,7 @@ const resources = {
         "no_songs": "No songs found."
       },
       "settings": {
+        "navidrome_url": "Navidrome URL",
         "navidrome_user": "Navidrome User",
         "navidrome_password": "Navidrome Password",
         "save_settings": "Save Settings",
@@ -170,7 +181,17 @@ const resources = {
         "job_history": "任务历史",
         "scheduler": "计划任务",
         "purge_analysis": "清理分析",
+        "compilation_merge": "合集整理",
         "settings": "设置"
+      },
+      "compilation": {
+        "title": "合集专辑整理",
+        "desc": "发现包含多个艺术家的专辑。将其设置为 'Various Artists' 以获得更好的分类效果。",
+        "merge_selected": "合并选中的歌曲为 'Various Artists'",
+        "discard": "忽略此建议",
+        "no_candidates": "未发现需要整理的合集。",
+        "loading": "正在扫描全库以查找合集专辑...",
+        "items_merged": "成功合并了 {{count}} 首曲目。"
       },
       "library": {
         "song_library": "曲库",
@@ -178,6 +199,7 @@ const resources = {
         "no_songs": "未找到歌曲。"
       },
       "settings": {
+        "navidrome_url": "Navidrome 地址",
         "navidrome_user": "Navidrome 用户名",
         "navidrome_password": "Navidrome 密码",
         "save_settings": "保存设置",
@@ -327,7 +349,17 @@ const resources = {
         "job_history": "ジョブ履歴",
         "scheduler": "スケジューラ",
         "purge_analysis": "パージ分析",
+        "compilation_merge": "コンピ整理",
         "settings": "設定"
+      },
+      "compilation": {
+        "title": "コンピレーションアルバム整理",
+        "desc": "複数のアーティストが含まれるアルバムが見つかりました。整理のためにアルバムアーティストを 'Various Artists' に設定します。",
+        "merge_selected": "選択した曲を 'Various Artists' としてマージ",
+        "discard": "この候補を無視",
+        "no_candidates": "コンピレーションの候補は見つかりませんでした。",
+        "loading": "ライブラリをスキャンしてコンピレーションを探しています...",
+        "items_merged": "{{count}} 曲のマージに成功しました。"
       },
       "library": {
         "song_library": "曲ライブラリ",
@@ -335,6 +367,7 @@ const resources = {
         "no_songs": "曲が見つかりません。"
       },
       "settings": {
+        "navidrome_url": "Navidrome URL",
         "navidrome_user": "Navidrome ユーザー",
         "navidrome_password": "Navidrome パスワード",
         "save_settings": "設定を保存",

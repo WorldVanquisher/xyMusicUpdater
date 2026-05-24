@@ -102,6 +102,16 @@ export const SettingsPanel = ({ onUpdate, notify }) => {
           </div>
         </div>
 
+        <div style={inputGroup}>
+          <label style={labelStyle}>{t('settings.navidrome_url')}</label>
+          <input 
+            value={config.NAVIDROME_URL || ''} 
+            onChange={e => setConfig({...config, NAVIDROME_URL: e.target.value})}
+            placeholder="e.g. http://localhost:4533"
+            style={inputStyle} 
+          />
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
           <div style={inputGroup}>
             <label style={labelStyle}>{t('settings.navidrome_user')}</label>

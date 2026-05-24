@@ -18,7 +18,7 @@ class SongSerializer(serializers.ModelSerializer):
         if not obj.pending_confirmation:
             return None
         try:
-            from .music_engine import _read_basic_tags
+            from .logic import _read_basic_tags
             path = Path(obj.filepath)
             if path.exists():
                 t, a, al, aa = _read_basic_tags(path)

@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
-from core import views
+from core import api as views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -35,6 +35,9 @@ urlpatterns = [
     path('api/subscriptions/<int:pk>/', views.subscriptions_view),
     path('api/subscriptions/run/', views.run_subscriptions_view),
     path('api/permanent-log/', views.permanent_log_view),
+    path('api/compilation/candidates/', views.compilation_candidates_view),
+    path('api/compilation/merge/', views.merge_compilation_view),
+    path('api/nd-cover/<str:nd_id>/', views.nd_song_cover_view),
     path('api/events/', views.sse_stream),
 ]
 

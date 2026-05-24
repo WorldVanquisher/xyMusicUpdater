@@ -18,6 +18,7 @@ import { PlaylistSelector } from './components/PlaylistSelector';
 import { PurgePreview } from './components/PurgePreview';
 import { DiscoveryPanel } from './components/DiscoveryPanel';
 import { SchedulerPanel } from './components/SchedulerPanel';
+import { CompilationMergePanel } from './components/CompilationMergePanel';
 
 const layout = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' },
@@ -67,8 +68,19 @@ const App = () => {
   const [playlistMap, setPlaylistMap] = useState({});
   const [isRescanning, setIsRescanning] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
+  const [isEventsOpen, setIsEventsOpen] = useState(window.innerWidth > 768);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const { entries, isLive } = useSSE();
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth <= 768;
 
   const showNotification = useCallback((message, type = 'success') => {
     setNotification({ message, type });
@@ -105,6 +117,11 @@ const App = () => {
     setTimeout(() => setIsRescanning(false), 2000);
   };
 
+  const navTo = (id) => {
+    setActiveTab(id);
+    if (isMobile) setIsSidebarOpen(false);
+  };
+
   return (
     <div style={layout.container}>
       {notification && (
@@ -117,60 +134,88 @@ const App = () => {
 
       <header style={layout.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {isMobile && (
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4 }}
+            >
+              <Activity size={24} />
+            </button>
+          )}
           <div style={layout.logo}>
             <Music size={20} color="#fff" />
           </div>
-          <div>
-            <h1 style={{ fontSize: 18, margin: 0 }}>{t('app.title')}</h1>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: isLive ? 'var(--green)' : 'var(--red)', boxShadow: isLive ? '0 0 8px var(--green)' : 'none' }}></div>
-              {isLive ? 'SYSTEM LIVE' : 'CONNECTING...'}
+          {!isMobile && (
+            <div>
+              <h1 style={{ fontSize: 18, margin: 0 }}>{t('app.title')}</h1>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: isLive ? 'var(--green)' : 'var(--red)', boxShadow: isLive ? '0 0 8px var(--green)' : 'none' }}></div>
+                {isLive ? 'SYSTEM LIVE' : 'CONNECTING...'}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select 
             value={i18n.language} 
             onChange={(e) => i18n.changeLanguage(e.target.value)}
-            style={{ padding: '6px', borderRadius: 4, background: 'var(--surface2)', color: '#fff', border: '1px solid var(--border)' }}
+            style={{ padding: '6px', borderRadius: 4, background: 'var(--surface2)', color: '#fff', border: '1px solid var(--border)', fontSize: 12 }}
           >
-            <option value="en">English</option>
-            <option value="zh">中文</option>
-            <option value="ja">日本語</option>
+            <option value="en">EN</option>
+            <option value="zh">ZH</option>
+            <option value="ja">JA</option>
           </select>
-          <button onClick={handleRescan} disabled={isRescanning} style={layout.actionBtn}>
-            <RefreshCw size={14} className={isRescanning ? 'spin' : ''} /> Rescan
+          <button onClick={handleRescan} disabled={isRescanning} style={{ ...layout.actionBtn, padding: isMobile ? '6px 8px' : '8px 16px' }}>
+            <RefreshCw size={14} className={isRescanning ? 'spin' : ''} /> {!isMobile && 'Rescan'}
           </button>
-          <button onClick={() => { api.triggerCron(); showNotification("Pipeline triggered"); }} style={layout.actionBtn}>
-            <Play size={14} /> Run Pipeline
+          <button onClick={() => { api.triggerCron(); showNotification("Pipeline triggered"); }} style={{ ...layout.actionBtn, padding: isMobile ? '6px 8px' : '8px 16px' }}>
+            <Play size={14} /> {!isMobile && 'Run Pipeline'}
           </button>
         </div>
       </header>
 
       <div style={layout.main}>
-        <nav style={layout.sidebar}>
-          <NavBtn id="library" icon={<Database size={18}/>} label={t('app.library')} active={activeTab} setter={setActiveTab} />
-          <NavBtn id="tagging" icon={<Tag size={18}/>} label={t('app.manual_tagging')} active={activeTab} count={songs.filter(s => (s.needs_tagging || s.pending_confirmation) && s.status === 'active').length} setter={setActiveTab} />
-          <NavBtn id="discovery" icon={<Download size={18}/>} label={t('app.downloads')} setter={setActiveTab} active={activeTab} />
-          <NavBtn id="jobs" icon={<History size={18}/>} label={t('app.job_history')} active={activeTab} setter={setActiveTab} />
-          <NavBtn id="scheduler" icon={<Clock size={18}/>} label={t('app.scheduler')} active={activeTab} setter={setActiveTab} />
-          <NavBtn id="purge" icon={<Trash2 size={18}/>} label={t('app.purge_analysis')} active={activeTab} setter={setActiveTab} />
-          <NavBtn id="settings" icon={<Settings size={18}/>} label={t('app.settings')} active={activeTab} setter={setActiveTab} />
-          
-          <div style={{ marginTop: 'auto', padding: '10px 0' }}>
-            <StorageBar storage={status?.storage} />
-          </div>
-        </nav>
+        {(isSidebarOpen || !isMobile) && (
+          <nav style={{
+            ...layout.sidebar,
+            position: isMobile ? 'fixed' : 'relative',
+            zIndex: 100,
+            height: isMobile ? 'calc(100% - 65px)' : 'auto',
+            width: isSidebarOpen ? 240 : 0,
+            padding: isSidebarOpen ? 16 : 0,
+            overflow: 'hidden',
+            transition: 'width 0.3s ease, padding 0.3s ease'
+          }}>
+            <NavBtn id="library" icon={<Database size={18}/>} label={t('app.library')} active={activeTab} setter={navTo} />
+            <NavBtn id="tagging" icon={<Tag size={18}/>} label={t('app.manual_tagging')} active={activeTab} count={songs.filter(s => (s.needs_tagging || s.pending_confirmation) && s.status === 'active').length} setter={navTo} />
+            <NavBtn id="discovery" icon={<Download size={18}/>} label={t('app.downloads')} setter={navTo} active={activeTab} />
+            <NavBtn id="jobs" icon={<History size={18}/>} label={t('app.job_history')} active={activeTab} setter={navTo} />
+            <NavBtn id="scheduler" icon={<Clock size={18}/>} label={t('app.scheduler')} active={activeTab} setter={navTo} />
+            <NavBtn id="purge" icon={<Trash2 size={18}/>} label={t('app.purge_analysis')} active={activeTab} setter={navTo} />
+            <NavBtn id="compilation" icon={<RefreshCw size={18}/>} label={t('app.compilation_merge')} active={activeTab} setter={navTo} />
+            <NavBtn id="settings" icon={<Settings size={18}/>} label={t('app.settings')} active={activeTab} setter={navTo} />
+            
+            {isSidebarOpen && (
+              <div style={{ marginTop: 'auto', padding: '10px 0' }}>
+                <StorageBar storage={status?.storage} />
+              </div>
+            )}
+          </nav>
+        )}
 
-        <section style={layout.content}>
+        <section style={{ 
+          ...layout.content, 
+          padding: isMobile ? 12 : 24,
+          flex: 1 
+        }}>
           {activeTab === 'library' && (
-            <div style={layout.grid2}>
+            <div style={{ ...layout.grid2, flexDirection: isMobile ? 'column' : 'row' }}>
               <div style={{ flex: 2 }}>
                 <div style={layout.sectionLabel}>Song Library</div>
                 <SongTable songs={songs} playlistMap={playlistMap} />
               </div>
-              <div>
+              <div style={{ width: isMobile ? '100%' : 300 }}>
                 <div style={layout.sectionLabel}>Playlist Protection</div>
                 <PlaylistSelector monitoredPlaylists={status?.config?.MONITORED_PLAYLISTS} onUpdate={loadAll} />
               </div>
@@ -180,7 +225,6 @@ const App = () => {
           {activeTab === 'tagging' && <TaggingPanel songs={songs} playlistMap={playlistMap} onUpdate={loadAll} notify={showNotification} />}
           {activeTab === 'discovery' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-
               <div style={{ background: 'var(--surface2)', padding: 20, borderRadius: 8 }}>
                 <ManualDownload onJobStarted={loadAll} />
               </div>
@@ -190,12 +234,24 @@ const App = () => {
           {activeTab === 'jobs' && <JobsPanel jobs={jobs} />}
           {activeTab === 'scheduler' && <SchedulerPanel config={status?.config} onUpdate={loadAll} notify={showNotification} />}
           {activeTab === 'purge' && <PurgePreview />}
+          {activeTab === 'compilation' && <CompilationMergePanel notify={showNotification} />}
           {activeTab === 'settings' && <SettingsPanel config={status?.config} onUpdate={loadAll} notify={showNotification} />}
         </section>
       </div>
 
-      <footer style={layout.footer}>
-        <LiveLog entries={entries} />
+      <footer style={{ ...layout.footer, height: isEventsOpen ? 'auto' : 40, overflow: 'hidden' }}>
+        <div 
+          onClick={() => setIsEventsOpen(!isEventsOpen)}
+          style={{ 
+            padding: '8px 24px', background: 'rgba(255,255,255,0.02)', 
+            fontSize: 10, fontWeight: 800, color: 'var(--text-dim)', 
+            cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
+          }}
+        >
+          <span>LIVE EVENTS {isLive ? '(LIVE)' : '(OFFLINE)'}</span>
+          <span>{isEventsOpen ? '▼ COLLAPSE' : '▲ EXPAND'}</span>
+        </div>
+        {isEventsOpen && <LiveLog entries={entries} />}
       </footer>
     </div>
   );

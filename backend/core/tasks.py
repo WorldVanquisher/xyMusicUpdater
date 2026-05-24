@@ -1,4 +1,4 @@
-from .music_engine import run_pipeline, cleanup_deleted_history
+from .logic import run_pipeline, cleanup_deleted_history
 from .models import DownloadJob
 from django.utils import timezone
 
