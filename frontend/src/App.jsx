@@ -4,7 +4,7 @@ import { api } from './api';
 import { useSSE } from './hooks/useSSE';
 import { 
   Settings, Music, Tag, History, Activity, 
-  Database, HardDrive, RefreshCw, Plus, Play, Trash2, Download, Clock, X, CheckCircle, AlertCircle
+  Database, HardDrive, RefreshCw, Plus, Play, Trash2, Download, Clock, X, CheckCircle, AlertCircle, Scissors
 } from 'lucide-react';
 
 import { StorageBar } from './components/StorageBar';
@@ -19,6 +19,7 @@ import { PurgePreview } from './components/PurgePreview';
 import { DiscoveryPanel } from './components/DiscoveryPanel';
 import { SchedulerPanel } from './components/SchedulerPanel';
 import { CompilationMergePanel } from './components/CompilationMergePanel';
+import { MusicEditor } from './components/MusicEditor';
 
 const layout = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' },
@@ -75,7 +76,14 @@ const App = () => {
   const { entries, isLive } = useSSE();
 
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setWindowWidth(width);
+      // Auto-expand sidebar when going from mobile to desktop
+      if (width > 768) {
+        setIsSidebarOpen(true);
+      }
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -194,6 +202,7 @@ const App = () => {
             <NavBtn id="scheduler" icon={<Clock size={18}/>} label={t('app.scheduler')} active={activeTab} setter={navTo} />
             <NavBtn id="purge" icon={<Trash2 size={18}/>} label={t('app.purge_analysis')} active={activeTab} setter={navTo} />
             <NavBtn id="compilation" icon={<RefreshCw size={18}/>} label={t('app.compilation_merge')} active={activeTab} setter={navTo} />
+            <NavBtn id="editor" icon={<Scissors size={18}/>} label={t('app.music_editor')} active={activeTab} setter={navTo} />
             <NavBtn id="settings" icon={<Settings size={18}/>} label={t('app.settings')} active={activeTab} setter={navTo} />
             
             {isSidebarOpen && (
@@ -235,6 +244,7 @@ const App = () => {
           {activeTab === 'scheduler' && <SchedulerPanel config={status?.config} onUpdate={loadAll} notify={showNotification} />}
           {activeTab === 'purge' && <PurgePreview />}
           {activeTab === 'compilation' && <CompilationMergePanel notify={showNotification} />}
+          {activeTab === 'editor' && <MusicEditor songs={songs} notify={showNotification} onUpdate={loadAll} />}
           {activeTab === 'settings' && <SettingsPanel config={status?.config} onUpdate={loadAll} notify={showNotification} />}
         </section>
       </div>

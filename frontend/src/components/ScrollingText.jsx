@@ -1,68 +1,91 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 
+/**
+ * Robust Scrolling Text component that detects overflow and animates automatically or on hover.
+ */
 export const ScrollingText = ({ text, style = {} }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
-  const [shouldScroll, setShouldScroll] = useState(false);
   const [scrollAmount, setScrollAmount] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
-  useEffect(() => {
-    const checkOverflow = () => {
-      const mobile = window.innerWidth <= 768;
-      setIsMobile(mobile);
-      if (containerRef.current && textRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        const textWidth = textRef.current.scrollWidth;
-        if (textWidth > containerWidth) {
-          setShouldScroll(true);
-          setScrollAmount(textWidth - containerWidth + 20); // 20px extra buffer
-        } else {
-          setShouldScroll(false);
-        }
+  const check = () => {
+    if (containerRef.current && textRef.current) {
+      const containerWidth = containerRef.current.offsetWidth;
+      const textWidth = textRef.current.offsetWidth;
+      
+      if (textWidth > containerWidth) {
+        // Add a bit more buffer for smooth ending
+        setScrollAmount(textWidth - containerWidth + 40);
+      } else {
+        setScrollAmount(0);
       }
-    };
+    }
+    setIsMobile(window.innerWidth <= 768);
+  };
 
-    checkOverflow();
-    window.addEventListener('resize', checkOverflow);
-    return () => window.removeEventListener('resize', checkOverflow);
+  useEffect(() => {
+    // Check multiple times to ensure we catch layout updates/tab switches
+    check();
+    const t1 = setTimeout(check, 100);
+    const t2 = setTimeout(check, 1000);
+    const t3 = setTimeout(check, 3000);
+    
+    window.addEventListener('resize', check);
+    return () => {
+      window.removeEventListener('resize', check);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, [text]);
 
-  const animationName = `marquee-${Math.random().toString(36).substr(2, 9)}`;
+  // Unique animation name per instance and text state
+  const animID = useMemo(() => `mq-${Math.random().toString(36).slice(2, 8)}`, [text, scrollAmount]);
+
+  const canScroll = scrollAmount > 0;
 
   return (
     <div 
       ref={containerRef}
-      className="marquee-container"
+      onMouseEnter={check} // Re-check on hover to be safe
       style={{ 
         overflow: 'hidden', 
         whiteSpace: 'nowrap', 
+        width: '100%',
         position: 'relative',
         ...style 
       }}
     >
-      <style>
-        {`
-          @keyframes ${animationName} {
-            0% { transform: translateX(0); }
-            10% { transform: translateX(0); }
-            50% { transform: translateX(-${scrollAmount}px); }
-            60% { transform: translateX(-${scrollAmount}px); }
-            100% { transform: translateX(0); }
-          }
-          .marquee-active${isMobile ? '' : ':hover'} .marquee-inner {
-            animation: ${animationName} 10s linear infinite;
-          }
-        `}
-      </style>
-      <div 
-        ref={textRef}
-        className={shouldScroll ? "marquee-active" : ""}
-        style={{ width: '100%' }}
-      >
-        <div className="marquee-inner" style={{ display: 'inline-block', transition: 'none' }}>
+      {canScroll && (
+        <style>
+          {`
+            @keyframes ${animID} {
+              0% { transform: translateX(0); }
+              5% { transform: translateX(0); }
+              45% { transform: translateX(-${scrollAmount}px); }
+              55% { transform: translateX(-${scrollAmount}px); }
+              95% { transform: translateX(0); }
+              100% { transform: translateX(0); }
+            }
+            .mq-wrap-${animID} {
+              display: inline-block;
+              width: 100%;
+            }
+            ${isMobile ? `.mq-inner-${animID}` : `.mq-wrap-${animID}:hover .mq-inner-${animID}`} {
+              animation: ${animID} 10s linear infinite;
+            }
+          `}
+        </style>
+      )}
+      <div className={`mq-wrap-${animID}`}>
+        <span 
+          ref={textRef} 
+          className={`mq-inner-${animID}`}
+          style={{ display: 'inline-block' }}
+        >
           {text}
-        </div>
+        </span>
       </div>
     </div>
   );
