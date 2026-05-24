@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from typing import Optional, Tuple
 from django.http import HttpResponse
 from django.utils import timezone as dj_tz
 from rest_framework.decorators import api_view
@@ -26,6 +27,38 @@ def merge_compilation_view(request):
     count = merge_compilation(nd_song_ids)
     return Response({"status": "ok", "merged": count})
 
+def _extract_cover_from_path(abs_path: Path) -> tuple[Optional[bytes], str]:
+    if not abs_path.exists():
+        return None, ""
+    
+    cover_data = None
+    mime_type = "image/jpeg"
+    try:
+        if abs_path.suffix.lower() == ".mp3":
+            from mutagen.id3 import ID3, ID3NoHeaderError
+            try:
+                tags = ID3(abs_path)
+                for key in tags.keys():
+                    if key.startswith("APIC"):
+                        cover_data = tags[key].data
+                        mime_type = tags[key].mime
+                        return cover_data, mime_type
+            except ID3NoHeaderError:
+                pass
+        
+        # Generic fallback for all formats (FLAC, OPUS, and MP3 without ID3 header but maybe other tags)
+        from mutagen import File
+        audio = File(abs_path)
+        if audio and hasattr(audio, 'pictures') and audio.pictures:
+            cover_data = audio.pictures[0].data
+            mime_type = audio.pictures[0].mime
+            return cover_data, mime_type
+            
+    except Exception as e:
+        print(f"ERROR: Cover extraction failed for {abs_path}: {e}")
+        
+    return None, ""
+
 def nd_song_cover_view(request, nd_id):
     import sqlite3
     from urllib.parse import unquote
@@ -42,11 +75,9 @@ def nd_song_cover_view(request, nd_id):
             if row:
                 path_str = unquote(row[0])
     except Exception as e:
-        print(f"DEBUG: DB error: {e}")
         return HttpResponse(status=404)
         
     if not path_str:
-        print(f"DEBUG: Path not found for ID {nd_id}")
         return HttpResponse(status=404)
         
     # Robust path resolution
@@ -71,33 +102,11 @@ def nd_song_cover_view(request, nd_id):
                 break
 
     if not abs_path:
-        print(f"DEBUG: File not found for path {path_str}")
         return HttpResponse(status=404)
         
-    cover_data = None
-    mime_type = "image/jpeg"
-    try:
-        if abs_path.suffix.lower() == ".mp3":
-            from mutagen.id3 import ID3
-            tags = ID3(abs_path)
-            # Find any APIC frame
-            for key in tags.keys():
-                if key.startswith("APIC"):
-                    cover_data = tags[key].data
-                    mime_type = tags[key].mime
-                    break
-        elif abs_path.suffix.lower() in [".flac", ".ogg", ".opus"]:
-            from mutagen import File
-            audio = File(abs_path)
-            if audio and hasattr(audio, 'pictures') and audio.pictures:
-                cover_data = audio.pictures[0].data
-                mime_type = audio.pictures[0].mime
-    except Exception as e:
-        print(f"DEBUG: Cover extraction error: {e}")
-        pass
-        
-    if cover_data:
-        return HttpResponse(cover_data, content_type=mime_type)
+    data, mime = _extract_cover_from_path(abs_path)
+    if data:
+        return HttpResponse(data, content_type=mime)
     return HttpResponse(status=404)
 
 @api_view(["GET"])
@@ -176,32 +185,9 @@ def song_cover_view(request, pk):
         return HttpResponse(status=404)
     
     path = Path(song.filepath)
-    if not path.exists():
-        return HttpResponse(status=404)
-    
-    cover_data = None
-    mime_type = "image/jpeg"
-    try:
-        if path.suffix.lower() == ".mp3":
-            from mutagen.id3 import ID3
-            tags = ID3(path)
-            for tag in tags.values():
-                if tag.getID() == "APIC":
-                    cover_data = tag.data
-                    mime_type = tag.mime
-                    break
-        elif path.suffix.lower() in [".flac", ".ogg", ".opus"]:
-            from mutagen import File
-            audio = File(path)
-            if audio.pictures:
-                cover_data = audio.pictures[0].data
-                mime_type = audio.pictures[0].mime
-        if not mime_type:
-            mime_type = "image/png"
-    except Exception:
-        pass
-    if cover_data:
-        return HttpResponse(cover_data, content_type=mime_type)
+    data, mime = _extract_cover_from_path(path)
+    if data:
+        return HttpResponse(data, content_type=mime)
     return HttpResponse(status=404)
 
 @api_view(["POST"])
