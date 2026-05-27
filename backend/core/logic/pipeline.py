@@ -28,7 +28,7 @@ def register_songs(files: List[Path], source: str = "", job: Optional[Any] = Non
         if not f.exists():
             continue
         
-        # Read Video ID if it exists
+        # Read Video ID from sidecar if it exists
         video_id = ""
         vid_file = Path(str(f) + ".vid")
         if vid_file.exists():

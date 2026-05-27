@@ -7,13 +7,25 @@ from typing import Any, Dict, List, Optional, Tuple
 from django.utils import timezone as dj_tz
 from .utils import _cfg, emit, _normalize_for_match
 
+def _is_valid_audio(path: Path) -> bool:
+    """Verifies audio file integrity using ffprobe."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    try:
+        # Check if ffprobe can read the duration/format info
+        cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(path)]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return res.returncode == 0 and len(res.stdout.strip()) > 0
+    except:
+        return False
+
 def _is_duplicate(title: str, uploader: str = "", video_id: str = "") -> bool:
     from ..models import Song
-    import sqlite3
     if not title:
         return False
     
     # 1. Primary Check: Video ID (Strongest Match)
+    # We check ALL songs, including deleted ones, to prevent re-downloading items purged by quota
     if video_id:
         if Song.objects.filter(video_id=video_id).exists():
             return True
@@ -23,31 +35,40 @@ def _is_duplicate(title: str, uploader: str = "", video_id: str = "") -> bool:
     norm = _normalize_for_match(title)
     
     # 2. Local DB Checks (Heuristics)
-    existing_songs = Song.objects.filter(status__in=['active', 'moved'])
+    # We check ALL songs (active, moved, deleted) to prevent re-downloading items 
+    # that were already processed by this system.
+    existing_songs = Song.objects.all()
     for song in existing_songs:
         db_t, db_a = song.title, song.artist
         if not db_t:
             continue
         db_t_lower = db_t.lower()
         db_a_lower = db_a.lower() if db_a else ""
+        db_norm = _normalize_for_match(db_t)
         
-        # Exact title & artist (uploader)
+        # Exact title & artist (uploader) match
         if u_lower and db_a_lower:
             if db_t_lower == t_lower and db_a_lower == u_lower:
                 return True
             
-        # Bi-directional inclusion
-        if db_a_lower and len(db_a_lower) > 2 and len(db_t_lower) > 2:
-            if (db_t_lower in t_lower and db_a_lower in t_lower) or \
-               (t_lower in db_t_lower and u_lower in db_t_lower):
+        # Bi-directional inclusion (Requires both title and artist match for high confidence)
+        if db_a_lower and len(db_a_lower) > 2 and len(db_norm) > 3:
+            if (db_norm in norm and _normalize_for_match(db_a_lower) in norm) or \
+               (norm in db_norm and _normalize_for_match(u_lower) in db_norm):
                 return True
             
-        # Title only (only if artist is missing in DB)
-        if not db_a_lower:
-            if db_t_lower == t_lower:
-                return True
-            if norm and _normalize_for_match(db_t) == norm:
-                return True
+        # Aggressive Title-Only match (especially for untagged songs)
+        # If one normalized title is a subset of the other and is long enough
+        if len(db_norm) > 4 and len(norm) > 4:
+            if db_norm in norm or norm in db_norm:
+                # Extra check: if uploader is known and artist is known, they should probably match too
+                # but if one is missing, we trust the title inclusion
+                if not u_lower or not db_a_lower or _normalize_for_match(u_lower) in norm or _normalize_for_match(db_a_lower) in norm:
+                    return True
+        
+        # Fallback exact match
+        if db_t_lower == t_lower:
+            return True
         
     # 3. Navidrome DB Checks (Direct SQL)
     db_path = "/navidrome_data/navidrome.db"
@@ -207,15 +228,30 @@ def _ytdlp_download(url: str, dest: Path, label: str, max_items: int = 10, job: 
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, errors="replace", timeout=600)
             if res.returncode != 0:
+                # 1. Cleanup all NEW files created during this failed run (junk/partial)
+                for f in (set(dest.iterdir()) - before):
+                    try: f.unlink()
+                    except: pass
                 err_msg = _sanitize_ytdlp_out(res.stderr, cfg)
                 emit(f"Download failed for {title}: {err_msg}", level="error", job=job)
             else:
                 new_files = [f for f in (set(dest.iterdir()) - before) if f.suffix.lower() == ".mp3"]
-                # Save video_id to files for later registration
+                valid_files = []
+                # 2. Verify integrity of new files using FFmpeg/ffprobe
                 for nf in new_files:
-                    Path(str(nf) + ".vid").write_text(video_id, encoding="utf-8")
-                downloaded_files.extend(new_files)
+                    if _is_valid_audio(nf):
+                        valid_files.append(nf)
+                        # Save video_id to sidecar files for registration
+                        Path(str(nf) + ".vid").write_text(video_id, encoding="utf-8")
+                    else:
+                        emit(f"Corrupted file detected: {nf.name}. Deleting.", level="error", job=job)
+                        nf.unlink(missing_ok=True)
+                downloaded_files.extend(valid_files)
         except Exception as e: 
+            # Aggressive cleanup on exception as well
+            for f in (set(dest.iterdir()) - before):
+                try: f.unlink()
+                except: pass
             emit(f"yt-dlp execution failed for {title}: {e}", level="error", job=job)
 
     if cookies_file and cookies_file.exists():

@@ -54,6 +54,13 @@ def _cfg() -> Dict[str, Any]:
         pass
     return base_cfg
 
+def _get_safe_cfg() -> Dict[str, Any]:
+    cfg = _cfg()
+    for key in ["NAVIDROME_PASSWORD", "YTDLP_PASSWORD", "YTDLP_COOKIES"]:
+        if key in cfg and cfg[key]:
+            cfg[key] = "********"
+    return cfg
+
 def _sanitize_filename(name: str) -> str:
     s = re.sub(r'[\\/*?:"<>|]', " ", name)
     s = re.sub(r'\s+', " ", s).strip()
@@ -62,6 +69,8 @@ def _sanitize_filename(name: str) -> str:
 def _normalize_for_match(s: str) -> str:
     if not s:
         return ""
-    # Remove extensions from normalization key to avoid collision
+    # Remove extensions and special characters, keep letters and numbers (Unicode aware)
     base = os.path.splitext(s.lower())[0]
-    return re.sub(r'[^a-z0-9]', '', base)
+    # \w matches alphanumeric characters including Unicode word characters
+    # We want to remove punctuation and symbols but keep characters from any language
+    return re.sub(r'[^\w\d]', '', base)
