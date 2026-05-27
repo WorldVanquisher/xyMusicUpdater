@@ -1,14 +1,38 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Activity, Clock, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../api';
+import { ChevronDown, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react';
 
-export const JobsPanel = ({ jobs }) => {
+export const JobsPanel = ({ notify }) => {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setEditingId] = useState(null);
+
+  const fetchJobs = async () => {
+    try {
+      const data = await api.getJobs();
+      setJobs(data);
+    } catch (e) {
+      console.error("Failed to fetch jobs", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+    const interval = setInterval(fetchJobs, 10000); // Only poll when this tab is open
+    return () => clearInterval(interval);
+  }, []);
 
   const toggle = (id) => {
     setEditingId(expandedId === id ? null : id);
   };
 
-  if (!jobs || jobs.length === 0) {
+  if (loading && jobs.length === 0) {
+    return <div style={{ color: 'var(--text-dim)', textAlign: 'center', padding: 40 }}>Loading job history...</div>;
+  }
+
+  if (jobs.length === 0) {
     return <div style={{ color: 'var(--text-dim)', textAlign: 'center', padding: 40 }}>No job history yet.</div>;
   }
 

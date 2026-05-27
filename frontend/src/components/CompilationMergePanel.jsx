@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ScrollingText } from './ScrollingText';
 import defaultCover from '../assets/default-cover.svg';
 
-export const CompilationMergePanel = ({ notify }) => {
+export const CompilationMergePanel = ({ onUpdate, notify }) => {
   const { t } = useTranslation();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +54,7 @@ export const CompilationMergePanel = ({ notify }) => {
     try {
       const res = await api.mergeCompilation(ids);
       notify(t('compilation.items_merged', { count: res.merged }));
+      if (onUpdate) onUpdate();
       // Remove merged album from list
       setCandidates(prev => prev.filter((_, i) => i !== groupIndex));
     } catch (e) {
