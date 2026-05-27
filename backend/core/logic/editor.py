@@ -6,14 +6,25 @@ from typing import Any, Optional, Tuple
 from .utils import emit, _cfg
 from .navidrome import navidrome_rescan
 
-def cleanup_previews(preview_path_str: Optional[str] = None) -> None:
+def get_preview_dir() -> Path:
+    """Returns and ensures the dedicated preview directory exists."""
+    p = Path('/app/data/previews')
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+def cleanup_previews(preview_path_str: Optional[str] = None, force_all: bool = False) -> None:
     """
-    Deletes temporary preview files. If preview_path_str is provided, only that file is deleted.
-    Otherwise, cleans up all files in the previews directory older than 1 hour.
+    Deletes temporary preview files. 
+    If force_all is True, deletes everything in the preview dir.
+    If preview_path_str is provided, only that file is deleted.
+    Otherwise, cleans up files older than 1 hour.
     """
-    cfg = _cfg()
-    temp_dir = Path(cfg["TEMP_FOLDER"]) / "previews"
-    if not temp_dir.exists():
+    temp_dir = get_preview_dir()
+    
+    if force_all:
+        for f in temp_dir.glob("preview_*"):
+            try: f.unlink()
+            except: pass
         return
 
     if preview_path_str:
@@ -34,6 +45,10 @@ def generate_trim_preview(song_id: int, start_time: str, end_time: str) -> Optio
     Generates a temporary trimmed version of a song for user review.
     Returns the path to the temporary file.
     """
+    # Clean up any existing previews before generating a new one
+    # to ensure only one preview exists at a time (per user intent)
+    cleanup_previews(force_all=True)
+
     from ..models import Song
     try:
         song = Song.objects.get(pk=song_id)
@@ -44,9 +59,7 @@ def generate_trim_preview(song_id: int, start_time: str, end_time: str) -> Optio
     if not input_path.exists():
         return None
 
-    cfg = _cfg()
-    temp_dir = Path(cfg["TEMP_FOLDER"]) / "previews"
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_dir = get_preview_dir()
     
     # Use a unique name to avoid collisions
     preview_filename = f"preview_{song_id}_{os.urandom(4).hex()}.mp3"

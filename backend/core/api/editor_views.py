@@ -1,25 +1,27 @@
+from .decorators import api_auth_required
 import os
 from pathlib import Path
 from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from ..models import Song
-from ..logic import generate_trim_preview, finalize_trim, _cfg, cleanup_previews
+from ..logic import generate_trim_preview, finalize_trim, _cfg, cleanup_previews, get_preview_dir
 
+@api_auth_required
 @api_view(["POST"])
 def cleanup_previews_view(request):
     preview_path = request.data.get("preview_path")
     cleanup_previews(preview_path)
     return Response({"status": "ok"})
 
+@api_auth_required
 @api_view(["GET"])
 def stream_song_view(request, pk):
     preview_path_str = request.query_params.get("preview_path")
     if preview_path_str:
         path = Path(preview_path_str)
         # Security: ensure path is inside previews folder
-        cfg = _cfg()
-        allowed_prefix = Path(cfg["TEMP_FOLDER"]) / "previews"
+        allowed_prefix = get_preview_dir()
         if not str(path).startswith(str(allowed_prefix)):
             return HttpResponse("Forbidden", status=403)
     else:
@@ -37,6 +39,7 @@ def stream_song_view(request, pk):
     response['Accept-Ranges'] = 'bytes' # Explicitly signal range support
     return response
 
+@api_auth_required
 @api_view(["POST"])
 def trim_song_view(request, pk):
     # This now just generates a preview
@@ -53,6 +56,7 @@ def trim_song_view(request, pk):
     else:
         return Response({"status": "error", "message": "Failed to generate preview"}, status=500)
 
+@api_auth_required
 @api_view(["POST"])
 def confirm_trim_view(request, pk):
     preview_path_str = request.data.get("preview_path")
@@ -61,8 +65,7 @@ def confirm_trim_view(request, pk):
     
     # Security: ensure path is inside previews folder
     path = Path(preview_path_str)
-    cfg = _cfg()
-    allowed_prefix = Path(cfg["TEMP_FOLDER"]) / "previews"
+    allowed_prefix = get_preview_dir()
     if not str(path).startswith(str(allowed_prefix)):
         return Response({"error": "Forbidden"}, status=403)
         
