@@ -25,8 +25,13 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
 WORKDIR /app
 
 # Python dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/requirements*.txt ./
+ARG ENV=production
+RUN if [ "$ENV" = "test" ]; then \
+        pip install --no-cache-dir -r requirements-dev.txt; \
+    else \
+        pip install --no-cache-dir -r requirements.txt; \
+    fi
 
 # Django app
 COPY backend/ .
@@ -42,6 +47,6 @@ RUN mkdir -p /music/temp /music/permanent /app/data
 # Collect static
 RUN python manage.py collectstatic --noinput
 
-EXPOSE 8000
+EXPOSE 4534
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
+CMD ["sh", "-c", "export DJANGO_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))') && python manage.py migrate --noinput && gunicorn music_updater.wsgi:application --bind 0.0.0.0:4534 --workers 2 --threads 8 --timeout 0"]

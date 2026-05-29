@@ -1,73 +1,88 @@
-# MusicUpdater
+# xyMusicUpdater
 
-A comprehensive, containerized system for intelligently fetching, tagging, and managing your music library for Navidrome. It combines a powerful Django/yt-dlp backend with a modern React frontend dashboard.
+<div align="center">
+  <img src="./frontend/public/icon.png" alt="xyMusicUpdater Logo" width="120" height="120" />
+</div>
 
-## Features
 
-- **Automated Discovery & Fetching**: Subscribe to YouTube/SoundCloud playlists or search keywords. The system periodically checks for and downloads new tracks automatically.
-- **Smart Duplicate Detection**: Before downloading, the engine cross-references both your local library and Navidrome's database using exact string matches and inclusion heuristics to prevent duplicate downloads and save bandwidth.
-- **Intelligent Auto-Tagging**: Metadata is automatically sourced via MusicBrainz and iTunes APIs. Matches are held in a "Draft" state for your manual review, ensuring perfect library organization.
-- **Robust Storage Management (Purge Analysis)**: Define a quota and a holding period. Old tracks are automatically purged from the temporary pool unless they belong to monitored playlists. Protected tracks are moved to permanent storage.
-- **Advanced yt-dlp Integration**: Full support for authenticated downloads (Netscape cookies, headers, Username/Password, and Proxy settings) directly configurable via the UI.
-- **Interactive React Dashboard**: A polished web interface providing real-time Server-Sent Events (SSE) logs, bulk tagging confirmation, manual metadata editing (with drag-and-drop cover support), and configuration management.
+<div align="center">
+  <img src="https://img.shields.io/docker/v/xyseer/xymusicupdater/latest" alt="Docker Image Version" />
+  <img src="https://img.shields.io/docker/pulls/xyseer/xymusicupdater" alt="Docker Pulls" />
+</div>
 
-## Project Structure
+xyMusicUpdater is a highly customized, full-stack (Django/React) companion application designed to supercharge and manage your **Navidrome** music library. Built with a modern Django backend and a sleek React frontend, it intelligently handles downloading, metadata tagging, audio trimming, and compilation merging—all while seamlessly keeping your Navidrome database in sync.
 
+## ✨ Key Features
+
+*   **Automated & Manual Discovery**: Fetch high-quality audio directly from user-defined playlists or individual URLs using an embedded download engine.
+*   **Robust Duplicate Detection**: Cross-references filenames, Video IDs, and normalized Unicode metadata across active and *deleted* statuses to prevent redundant downloads and save bandwidth.
+*   **Intelligent Auto-Tagging**: Matches raw downloads against the **MusicBrainz** and **Apple Music** APIs to automatically fetch cover art, album names, and artist metadata.
+*   **In-Browser Music Editor**: Trim audio files precisely using an FFmpeg-powered preview-before-commit workflow, directly within the web UI.
+*   **Compilation Album Merger**: Automatically detects multi-artist albums and provides a one-click merge tool to unify them under "Various Artists," keeping your library clean.
+*   **Purge Analysis & Protection**: Analyzes storage usage and safely archives/deletes old tracks based on customizable retention policies, while protecting songs found in designated "Monitored Playlists."
+*   **Modern Security**: Features AES-CBC encrypted password transmission, a dynamic per-boot `SECRET_KEY`, and a strict `@api_auth_required` API firewall.
+*   **Glassmorphism UI**: A fully responsive, multi-language (EN/ZH/JA) React frontend featuring smooth CSS animations, infinite-scrolling marquees, and dynamic background theming.
+
+## 🏗️ Architecture
+
+xyMusicUpdater operates alongside Navidrome via Docker Compose:
+
+1.  **Backend (Django 5.x / Python 3.12)**: Handles business logic, FFmpeg audio processing, SQLite database management, and exposes a RESTful API + Server-Sent Events (SSE) stream.
+2.  **Frontend (React 18 / Vite)**: A Single Page Application offering a rich, desktop-like management dashboard.
+3.  **Navidrome**: Acts as the underlying media server and Subsonic API provider.
+
+*Note: xyMusicUpdater directly interacts with Navidrome's underlying `navidrome.db` (SQLite) via a shared Docker volume to achieve instant metadata syncing without waiting for periodic rescans.*
+
+## 🚀 Installation & Setup
+
+xyMusicUpdater is designed to be deployed via Docker Compose.
+
+### 1. Prerequisites
+*   Docker and Docker Compose installed on your host machine.
+
+### 2. Deployment
+A standard template `docker-compose.example.yml` integrates both Navidrome and xyMusicUpdater.
+Copy this template as `docker-compose.yml` to your folder. Fill out the essential arguments like volume mount paths, username, and password.
+
+If you prefer not to use the Docker deployment, you can refer to the `Dockerfile` to start the service natively using Python and Node.js.
+
+### 3. Start the Server
+```bash
+# In your project folder
+docker compose up -d
 ```
-├── docker-compose.yml       # Production/development orchestration
-├── Dockerfile               # Multi-stage build (React -> Django)
-├── backend/                 # Django application & music engine
-│   ├── manage.py
-│   ├── requirements.txt
-│   ├── core/                # Core logic, SSE views, API endpoints, Celery/Thread tasks
-│   └── music_updater/       # Django settings and routing
-└── frontend/                # React Vite application
-    ├── package.json
-    ├── vite.config.js
-    └── src/
-        ├── api.js           # Axios HTTP client
-        ├── App.jsx          # Main layout and routing
-        └── components/      # UI panels (Discovery, Tagging, Settings, etc.)
+Access the UI at `http://localhost:4534`.
+
+## 🔐 Authentication
+
+*   **Default Credentials**: Controlled by `APP_USER` and `APP_PASSWORD` in your `docker-compose.yml`.
+*   **Security Protocol**: The application uses a dynamic, non-persistent secret key generated on every boot. This means **sessions do not persist across container restarts** (you may need to refresh your browser after a service reboot).
+
+## 📁 Directory Structure (Inside Container)
+*   `/music/temp`: Staging area for new downloads and unprocessed files.
+*   `/music/permanent`: Archive for protected/favorited tracks.
+*   `/app/data`: Persistent volume for the SQLite database, custom backgrounds, and temporary audio previews (`/app/data/previews`).
+*   `/navidrome_data`: Shared volume containing Navidrome's database for direct read/write access.
+
+## 🛠️ Development
+
+To build or modify the frontend assets:
+```bash
+cd frontend
+npm install
+npm run build
 ```
 
-## Setup & Installation
+To run the backend locally, please use standard Django WSGI methods or development commands to start the backend. The Django application will automatically serve the built static files from `frontend/dist`.
 
-### Requirements
-- Docker and Docker Compose
+---
 
-### Running the Stack
+## ⚠️ Legal & AI Disclaimer
 
-1. Clone this repository.
-2. Build and start the containers:
-   ```bash
-   docker compose up -d --build
-   ```
-3. Access the dashboard:
-   Open `http://localhost:8000` in your web browser.
+**AI-Generated Content**: This project contains AI-generated code. If you have any concerns regarding AI-assisted development, please refrain from using this software.
 
-### Volumes & Persistence
-- `navidrome_data`: The database of your Navidrome instance. The manager mounts this to synchronize tags and perform direct SQL duplicate checks.
-- `manager_data`: The SQLite database for the manager's queues, song registries, and configurations.
-- `music_temp`: The staging ground for newly downloaded tracks.
-- `music_permanent`: Long-term storage for protected playlist tracks.
+**Educational Purpose**: This project is intended strictly for educational and learning purposes only. It is not intended for any commercial or business use.
 
-## Configuration
+The core functionality of this project is local file management and metadata tagging. The optional download module is disabled by default. It is provided solely as a technical proof-of-concept and should only be enabled and used by individuals who have explicit legal rights or permission to download the target content (e.g., royalty-free music, personal podcast backups).
 
-All critical settings are configurable via the **Settings** tab in the web dashboard.
-- **Navidrome Credentials**: Required for the manager to trigger rescans and delete missing files via the API.
-- **yt-dlp Authentication**: Essential for downloading private playlists or geo-restricted content. Paste your browser cookies or use credentials.
-- **Purge Policies**: Set `MAX_DELETE_PER_PURGE` and `HOLD_PERIOD_DAYS` to manage your disk space.
-
-## Workflow Overview
-
-1. **Download**: Add a manual URL or let a Discovery Task trigger.
-2. **Analysis**: The engine checks the Navidrome DB for duplicates using combined title/artist heuristics.
-3. **Fetch & Tag**: `yt-dlp` fetches the audio. The engine queries MusicBrainz/iTunes.
-4. **Supervise**: Open the **Manual Tagging** tab to review the drafted metadata side-by-side with original file tags. Confirm, Reject, or Use Original.
-5. **Sync**: Confirmed tags are written to the `.mp3` file via Mutagen, and the Navidrome database is forcibly synced.
-
-## Next Version Goals (v1.1+)
-- **Music Editor**: Add a simple music editor to cut some track beginning/ending directly from the web interface.
-
-## License
-MIT License.
+The authors and contributors of this project do not endorse, encourage, or facilitate copyright infringement. The authors assume no responsibility or liability for any actions taken by users with this software. By using this software, you agree to bear full responsibility for your actions and comply with all applicable local and international laws, as well as the Terms of Service of any platforms you interact with.

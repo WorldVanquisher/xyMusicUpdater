@@ -1,0 +1,70 @@
+services:
+
+  # ── Navidrome ──────────────────────────────────────────────────────────────
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    restart: unless-stopped
+    ports:
+      - "4533:4533"
+    environment:
+      ND_SCANSCHEDULE: "12h"
+      ND_LOGLEVEL: "info"
+      ND_SESSIONTIMEOUT: "24h"
+      ND_MUSICFOLDER: /music
+    volumes:
+      - ./navidrome_data:/data
+      - ./music/temp:/music/temp
+      - ./music/permanent:/music/permanent
+
+  # ── xyMusicUpdater ────────────────────────────────────────
+  xymusicupdater:
+    image: xyseer/xymusicupdater:latest  # Replace with actual image when published
+    container_name: xymusicupdater-1
+    restart: unless-stopped
+    depends_on:
+      - navidrome
+    ports:
+      - "4534:4534"                  # UI accessible at http://localhost:4534
+    environment:
+      # App Login Credentials
+      APP_USER: "admin"
+      APP_PASSWORD: "xyseer"
+
+      # Navidrome connection (internal Docker network)
+      NAVIDROME_URL: "http://navidrome:4533"
+      NAVIDROME_USER: "admin"
+      NAVIDROME_PASSWORD: "CHANGEME"         # ← match your Navidrome password
+
+      # Storage
+      TEMP_FOLDER: "/music/temp"
+      PERMANENT_SAVING_DIR: "/music/permanent"
+      MAX_STORAGE_SIZE: "10"                 # 10 GB
+      PURGE_BATCH_SIZE: "20"                 # delete 20 songs per purge
+
+      # MusicBrainz
+      MB_CONTACT: "you@example.com"         # ← change this for avoiding banned (MusicBrainZ required)
+
+      # Scheduler
+      # DAEMON_INTERVAL_HOURS: "24"           # 24 hours
+
+      # Fetch
+      # MAX_SONGS_PER_SOURCE: "10"            # only get 10 from playlist
+
+      # yt-dlp Auth (can also be configured via UI)
+      # YTDLP_COOKIES: ""
+      # YTDLP_USERNAME: ""
+      # YTDLP_PASSWORD: ""
+      # YTDLP_PROXY: ""
+      
+      # UI Toggles
+      # UI_DASHBOARD_BG: "true"
+      # UI_THEME_COLOR: "#9b51e0"
+      ALLOW_YTDLP: "false"                  # Set to "true" to enable the downloading module
+
+    volumes:
+      - ./music/temp:/music/temp
+      - ./music/permanent:/music/permanent
+      - ./data:/app/data              # SQLite, config, and background image
+      - ./navidrome_data:/navidrome_data:rw   # Access Navidrome's DB
+

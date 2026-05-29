@@ -67,11 +67,11 @@ export const LoginPanel = ({ onLogin, notify }) => {
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}></div>
       <div style={{ background: 'var(--surface)', padding: 40, borderRadius: 12, width: '100%', maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.8)', zIndex: 1, border: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-          <div style={{ width: 64, height: 64, background: 'var(--surface2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Lock size={32} color="var(--accent)" />
+          <div style={{ width: 64, height: 64, background: 'var(--surface2)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+            <img src="/static/icon.png" alt="xyMusicUpdater Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         </div>
-        <h2 style={{ textAlign: 'center', margin: '0 0 8px' }}>MusicUpdater</h2>
+        <h2 style={{ textAlign: 'center', margin: '0 0 8px' }}>xyMusicUpdater</h2>
         <p style={{ textAlign: 'center', color: 'var(--text-dim)', marginBottom: 24, fontSize: 13 }}>Please login to manage your library</p>
         
         {errorMsg && (

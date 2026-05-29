@@ -6,7 +6,7 @@ const resources = {
   en: {
     translation: {
       "app": {
-        "title": "MusicUpdater",
+        "title": "xyMusicUpdater",
         "login_failed": "Login failed. Check your credentials.",
         "wrong_credentials": "Wrong username or password",
         "library": "Library",
@@ -193,7 +193,7 @@ const resources = {
   zh: {
     translation: {
       "app": {
-        "title": "MusicUpdater",
+        "title": "xyMusicUpdater",
         "login_failed": "登录失败，请检查你的凭证。",
         "wrong_credentials": "用户名或密码错误",
         "library": "曲库",
@@ -380,7 +380,7 @@ const resources = {
   ja: {
     translation: {
       "app": {
-        "title": "MusicUpdater",
+        "title": "xyMusicUpdater",
         "login_failed": "ログインに失敗しました。資格情報を確認してください。",
         "wrong_credentials": "ユーザー名またはパスワードが正しくありません",
         "library": "曲ライブラリ",

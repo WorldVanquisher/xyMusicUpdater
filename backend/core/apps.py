@@ -20,6 +20,8 @@ class CoreConfig(AppConfig):
     def deferred_startup(self):
         """Startup logic that needs DB access, deferred to avoid RuntimeWarning."""
         import time
+        import sqlite3
+        import subprocess
         from django.db import connection
         
         # Wait a bit for DB to be ready/migrations to run if needed
@@ -28,8 +30,16 @@ class CoreConfig(AppConfig):
             try:
                 if 'core_downloadjob' in connection.introspection.table_names():
                     break
-            except:
-                pass
+            except Exception as e:
+                # Automatic DB Reset if disk image is malformed (SQLite corruption)
+                if 'malformed' in str(e).lower() or isinstance(e, sqlite3.DatabaseError):
+                    print(f"CRITICAL: SQLite database corruption detected ({e}). Attempting automatic reset...")
+                    db_path = settings.DATABASES['default']['NAME']
+                    if os.path.exists(db_path):
+                        os.remove(db_path)
+                    print("Corrupted DB deleted. Running migrations to rebuild...")
+                    subprocess.run(["python", "manage.py", "migrate", "--noinput"])
+                    break # Migrations done, table should exist now
             time.sleep(2)
         else:
             return # Table not found after retries
