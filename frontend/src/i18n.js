@@ -61,6 +61,7 @@ const resources = {
         "hold_period": "Hold Period (Days)",
         "max_deletions": "Max Deletions per Purge",
         "max_songs": "Max Songs Per Source / Playlist",
+        "default_page_size": "Default Page Size",
         "monitored_playlists": "Monitored Playlists (Comma separated)",
         "monitored_playlists_placeholder": "e.g. tt, favorites (empty for ALL)",
         "ytdlp_cookies": "yt-dlp Cookies (Netscape format, optional)",
@@ -74,7 +75,9 @@ const resources = {
         "ytdlp_password": "yt-dlp Password (optional)",
         "password_set": "Password is set. Type to change.",
         "password": "Password",
-        "username": "Username"
+        "username": "Username",
+        "acoustid_api_key": "AcoustID API Key",
+        "acoustid_hint": "Used for audio fingerprint matching. Get a free key at acoustid.org/api-key"
       },
       "purge": {
         "title": "Purge Analysis",
@@ -249,6 +252,7 @@ const resources = {
         "hold_period": "保留天数 (Days)",
         "max_deletions": "每次清理最大删除数",
         "max_songs": "每个源/歌单最大歌曲数",
+        "default_page_size": "默认分页大小",
         "monitored_playlists": "受监控的播放列表 (逗号分隔)",
         "monitored_playlists_placeholder": "例如: tt, favorites (留空为监控所有)",
         "ytdlp_cookies": "yt-dlp Cookies (Netscape 格式, 可选)",
@@ -262,7 +266,9 @@ const resources = {
         "ytdlp_password": "yt-dlp 密码 (可选)",
         "password_set": "已设置密码。输入以更改。",
         "password": "密码",
-        "username": "用户名"
+        "username": "用户名",
+        "acoustid_api_key": "AcoustID API Key",
+        "acoustid_hint": "用于音频声纹识别。在 acoustid.org/api-key 免费获取"
       },
       "purge": {
         "title": "清理分析",
@@ -438,6 +444,7 @@ const resources = {
         "hold_period": "保持期間 (日数)",
         "max_deletions": "1回あたりの最大削除数",
         "max_songs": "ソース/プレイリストあたりの最大曲数",
+        "default_page_size": "デフォルトのページサイズ",
         "monitored_playlists": "監視対象プレイリスト (カンマ区切り)",
         "monitored_playlists_placeholder": "例: tt, favorites (空白ですべてを監視)",
         "ytdlp_cookies": "yt-dlp Cookies (Netscape 形式, 任意)",
@@ -451,7 +458,9 @@ const resources = {
         "ytdlp_password": "yt-dlp パスワード (任意)",
         "password_set": "パスワード設定済み。変更するには入力。",
         "password": "パスワード",
-        "username": "ユーザー名"
+        "username": "ユーザー名",
+        "acoustid_api_key": "AcoustID API Key",
+        "acoustid_hint": "音声フィンガープリント識別に使用。acoustid.org/api-key で無料取得"
       },
       "purge": {
         "title": "パージ分析",

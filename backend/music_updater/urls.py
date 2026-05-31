@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/songs/<int:pk>/', views.song_detail_view),
     path('api/songs/<int:pk>/cover/', views.song_cover_view),
     path('api/songs/<int:pk>/revert/', views.revert_song_view),
+    path('api/songs/<int:pk>/stage/', views.stage_tags_view),
     path('api/jobs/', views.jobs_list),
     path('api/jobs/<int:pk>/', views.job_detail),
     path('api/jobs/manual/', views.manual_download),
