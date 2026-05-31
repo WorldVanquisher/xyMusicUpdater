@@ -2,6 +2,11 @@
 CLAUDE.local.md
 .claude/settings.local.json
 
+# AI agent documents
+CLAUDE.md
+GEMINI.md
+PROGRESS.md
+
 # Environment
 .env
 .env.*

@@ -66,6 +66,12 @@ services:
       # UI_THEME_COLOR: "#9b51e0"
       ALLOW_YTDLP: "false"                  # Set to "true" to enable the downloading module
 
+      # AcoustID audio fingerprinting API key — get a free key at https://acoustid.org/api-key
+      ACOUSTID_API_KEY: ""
+
+      # Timezone (e.g. Asia/Shanghai, America/New_York, Europe/London)
+      TZ: "UTC"
+
     volumes:
       - ./music/temp:/music/temp
       - ./music/permanent:/music/permanent

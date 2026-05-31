@@ -1,29 +1,101 @@
-name: CI
+name: CI / CD
 
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
   pull_request:
     branches: [main]
 
 jobs:
-  test:
+  # ── Backend — pytest ────────────────────────────────────────────────────────
+  backend-test:
+    name: Backend (pytest)
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      # TODO: Add your language-specific setup steps here
-      # Examples:
-      #   - uses: actions/setup-node@v4
-      #     with: { node-version: '20' }
-      #   - uses: actions/setup-python@v5
-      #     with: { python-version: '3.12' }
-      #   - uses: actions/setup-go@v5
-      #     with: { go-version: '1.22' }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Run pytest
+        working-directory: backend
+        env:
+          DJANGO_SECRET_KEY: ci-only-secret-not-for-production
+          DB_PATH: /tmp/ci_test.sqlite3
+          TEMP_FOLDER: /tmp/ci_music_temp
+          PERMANENT_SAVING_DIR: /tmp/ci_music_perm
+          APP_USER: admin
+          APP_PASSWORD: testpass
+        run: pytest -v --tb=short -q
+
+  # ── Frontend — vitest + build ───────────────────────────────────────────────
+  frontend-test:
+    name: Frontend (vitest + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: echo "TODO: Add your install command (npm ci, pip install -r requirements.txt, etc.)"
+        working-directory: frontend
+        run: npm ci
 
-      - name: Run tests
-        run: echo "TODO: Add your test command (npm test, pytest -v, go test ./..., etc.)"
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Build (verify production bundle)
+        working-directory: frontend
+        run: npm run build
+
+  # ── Docker — multi-arch build & push on version tag ────────────────────────
+  docker-publish:
+    name: Docker (linux/amd64 + linux/arm64)
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: xyseer/xymusicupdater
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
