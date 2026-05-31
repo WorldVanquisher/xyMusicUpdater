@@ -64,7 +64,7 @@ export const LoginPanel = ({ onLogin, notify }) => {
     <div style={{ 
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
       position: 'fixed', inset: 0, zIndex: 9999,
-      backgroundImage: `url(${bgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
+      backgroundImage: bgUrl ? `url(${bgUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
     }}>
       <style>{`
         :root {

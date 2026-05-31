@@ -4,7 +4,7 @@ import { api } from './api';
 import { useSSE } from './hooks/useSSE';
 import { 
   Settings, Music, Tag, History, Activity, 
-  Database, HardDrive, RefreshCw, Plus, Play, Trash2, Download, Clock, X, CheckCircle, AlertCircle, Scissors, LogOut
+  Database, RefreshCw, Download, Clock, Scissors
 } from 'lucide-react';
 
 import { StorageBar } from './components/StorageBar';
@@ -61,8 +61,8 @@ const App = () => {
   const [session, setSession] = useState({ checked: false, user: null });
   const [activeTab, setActiveTab] = useState('library');
   const [status, setStatus] = useState(null);
-  const [songs, setSongs] = useState([]);
   const [playlistMap, setPlaylistMap] = useState({});
+  const [pendingCount, setPendingCount] = useState(0);
   const [isRescanning, setIsRescanning] = useState(false);
   const [notification, setNotification] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -70,27 +70,30 @@ const App = () => {
   const [isEventsOpen, setIsEventsOpen] = useState(window.innerWidth > 768);
   const [bgUrl, setBgUrl] = useState(null);
 
+  const abortControllerRef = useRef(null);
+
   const showNotification = useCallback((message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   }, []);
 
   const handleLogout = useCallback(async () => {
-    try { await api.logout(); } catch (e) {}
+    try { await api.logout(); } catch(e) {}
     setSession({ checked: true, user: null });
     setActiveTab('library');
   }, []);
 
   const onPermanentFailure = useCallback(() => {
     handleLogout();
-    showNotification("System is offline or not responding. Please login again.", "error");
+    showNotification("System is offline. Reloading...", "error");
+    setTimeout(() => window.location.reload(), 2000);
   }, [handleLogout, showNotification]);
 
-  const { entries, isLive } = useSSE(session.user, onPermanentFailure);
+  const sseRetryMs = (status?.config?.API_TIMEOUT_SECONDS || 15) * 1000;
+  const { entries, isLive } = useSSE(session.user, onPermanentFailure, sseRetryMs);
 
   const isMobile = windowWidth <= 768;
 
-  // 1. Initial Session Check & Global Event Listeners
   useEffect(() => {
     api.getSession()
       .then(res => setSession({ checked: true, user: res.authenticated ? res.user : null }))
@@ -99,10 +102,9 @@ const App = () => {
     const handleUnauthorized = () => {
       if (session.user) {
         handleLogout();
-        showNotification("Session expired or unauthorized. Please login again.", "error");
+        showNotification("Session expired. Please login again.", "error");
       }
     };
-
     window.addEventListener('api-unauthorized', handleUnauthorized);
     return () => window.removeEventListener('api-unauthorized', handleUnauthorized);
   }, [session.user, handleLogout, showNotification]);
@@ -115,58 +117,43 @@ const App = () => {
     }
   }, [session.user]);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setWindowWidth(width);
-      if (width > 768) setIsSidebarOpen(true);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (signal) => {
     if (!session.user) return;
     try {
-      const statusRes = await api.getStatus();
+      const statusRes = await api.getStatus(signal);
       setStatus(statusRes);
       if (statusRes.config?.API_TIMEOUT_SECONDS) {
           api.setTimeout(statusRes.config.API_TIMEOUT_SECONDS);
       }
-    } catch (e) { console.error('Status fetch failed', e); }
+    } catch (e) { if (e.name !== 'CanceledError') console.error('Status fetch failed', e); }
   }, [session.user]);
 
-  const fetchSongs = useCallback(async () => {
+  const fetchGlobalData = useCallback(async (signal) => {
     if (!session.user) return;
     try {
-      const [songsRes, mapRes] = await Promise.all([
-        api.getSongs(),
-        api.getPlaylistMap()
+      const [pendingRes, mapRes] = await Promise.all([
+        api.getSongs(signal, 'pending', 1, 1),
+        api.getPlaylistMap(signal)
       ]);
-      setSongs(songsRes);
+      setPendingCount(pendingRes.total || 0);
       setPlaylistMap(mapRes);
-    } catch (e) { console.error('Songs fetch failed', e); }
+    } catch (e) { if (e.name !== 'CanceledError') console.error('Global fetch failed', e); }
   }, [session.user]);
 
   const refreshAll = useCallback(() => {
       fetchStatus();
-      fetchSongs();
-  }, [fetchStatus, fetchSongs]);
+      fetchGlobalData();
+  }, [fetchStatus, fetchGlobalData]);
 
-  // Fetch status once on login/refresh
   useEffect(() => {
-    if (session.user) fetchStatus();
-  }, [session.user, fetchStatus]);
-
-  // Data loading: ONLY when needed (tab switch)
-  useEffect(() => {
-    const songTabs = ['library', 'tagging', 'editor'];
-    if (session.user && songTabs.includes(activeTab)) {
-        fetchSongs();
-    }
-    // Also refresh status on tab switch to keep storage info somewhat fresh
-    if (session.user) fetchStatus();
-  }, [session.user, activeTab, fetchSongs, fetchStatus]);
+    if (!session.user) return;
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    fetchStatus(signal);
+    fetchGlobalData(signal);
+    return () => abortControllerRef.current?.abort();
+  }, [session.user, activeTab, fetchStatus, fetchGlobalData]);
 
   const handleLogin = () => {
     setSession({ checked: true, user: 'admin' });
@@ -186,66 +173,27 @@ const App = () => {
     if (isMobile) setIsSidebarOpen(false);
   };
 
-  if (!session.checked) return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0c' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-            <Music size={48} color="var(--accent)" className="spin" />
-            <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: 2, color: 'var(--text-dim)' }}>INITIALIZING SESSION...</div>
-        </div>
-    </div>
-  );
-
+  if (!session.checked) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0c' }}><Music size={48} color="var(--accent)" className="spin" /></div>;
   if (!session.user) return <LoginPanel onLogin={handleLogin} notify={showNotification} />;
 
   const showBg = status?.config?.UI_DASHBOARD_BG === 'true';
   const themeColor = status?.config?.UI_THEME_COLOR || '#9b51e0';
 
   return (
-    <div style={{ 
-        ...layout.container, 
-        backgroundImage: showBg && bgUrl ? `url(${bgUrl})` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        position: 'relative'
-    }}>
+    <div style={{ ...layout.container, backgroundImage: showBg && bgUrl ? `url(${bgUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', position: 'relative' }}>
       <style>{`
-        :root {
-            --accent: ${themeColor};
-        }
-        .nav-btn {
-            border-left: 3px solid transparent !important;
-        }
-        .nav-btn-active {
-            color: #fff !important;
-            background: rgba(255,255,255,0.05) !important;
-            border-left-color: var(--accent) !important;
-        }
+        :root { --accent: ${themeColor}; }
+        .nav-btn { border-left: 3px solid transparent !important; }
+        .nav-btn-active { color: #fff !important; background: rgba(255,255,255,0.05) !important; border-left-color: var(--accent) !important; }
       `}</style>
       {showBg && bgUrl && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', zIndex: 0 }}></div>}
       
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', zIndex: 1 }}>
-        {notification && (
-            <Toast 
-            message={notification.message} 
-            type={notification.type} 
-            onClose={() => setNotification(null)} 
-            />
-        )}
+        {notification && <Toast message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
 
         <header style={{ ...layout.header, background: showBg ? 'rgba(30,30,35,0.4)' : layout.header.background, backdropFilter: showBg ? 'blur(12px)' : 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {isMobile && (
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4 }}
-            >
-              <Activity size={24} />
-            </button>
-          )}
-          <div className="animate-bounce" style={{ ...layout.logo, overflow: 'hidden' }}>
-            <img src="/static/icon.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
+          <div className="animate-bounce" style={{ ...layout.logo, overflow: 'hidden' }}><img src="/static/icon.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
           {!isMobile && (
             <div>
               <h1 style={{ fontSize: 18, margin: 0 }}>{t('app.title')}</h1>
@@ -258,78 +206,36 @@ const App = () => {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select 
-            value={i18n.language} 
-            onChange={(e) => i18n.changeLanguage(e.target.value)}
-            style={{ padding: '6px', borderRadius: 4, background: 'var(--surface2)', color: '#fff', border: '1px solid var(--border)', fontSize: 12 }}
-          >
-            <option value="en">EN</option>
-            <option value="zh">ZH</option>
-            <option value="ja">JA</option>
+          <select value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} style={{ padding: '6px', borderRadius: 4, background: 'var(--surface2)', color: '#fff', border: '1px solid var(--border)', fontSize: 12 }}>
+            <option value="en">EN</option><option value="zh">ZH</option><option value="ja">JA</option>
           </select>
-          <button onClick={handleRescan} disabled={isRescanning} style={{ ...layout.actionBtn, padding: isMobile ? '6px 8px' : '8px 16px' }}>
-            <RefreshCw size={14} className={isRescanning ? 'spin' : ''} /> {!isMobile && 'Rescan'}
-          </button>
+          <button onClick={handleRescan} disabled={isRescanning} style={{ ...layout.actionBtn, padding: isMobile ? '6px 8px' : '8px 16px' }}><RefreshCw size={14} className={isRescanning ? 'spin' : ''} /> {!isMobile && 'Rescan'}</button>
           {status?.config?.ALLOW_YTDLP && (
-            <button onClick={() => { api.triggerCron(); refreshAll(); showNotification("Pipeline triggered"); }} style={{ ...layout.actionBtn, padding: isMobile ? '6px 8px' : '8px 16px' }}>
-              <Play size={14} /> {!isMobile && 'Run Pipeline'}
-            </button>
+            <button onClick={() => { api.triggerCron(); refreshAll(); showNotification("Pipeline triggered"); }} style={{ ...layout.actionBtn, padding: isMobile ? '6px 8px' : '8px 16px' }}><RefreshCw size={14} /> {!isMobile && 'Run Pipeline'}</button>
           )}
         </div>
       </header>
 
       <div style={layout.main}>
-        {(isSidebarOpen || !isMobile) && (
-          <nav 
-            className="animate-slide"
-            style={{
-              ...layout.sidebar,
-              position: isMobile ? 'fixed' : 'relative',
-              zIndex: 100,
-              height: isMobile ? 'calc(100% - 65px)' : 'auto',
-              width: isSidebarOpen ? 240 : 0,
-              padding: isSidebarOpen ? '16px 0' : 0,
-              opacity: isSidebarOpen ? 1 : 0,
-              overflow: 'hidden',
-              transition: 'width 0.3s ease, padding 0.3s ease, opacity 0.3s ease',
-              background: showBg ? 'rgba(20,20,25,0.4)' : layout.sidebar.background,
-
-              backdropFilter: showBg ? 'blur(12px)' : 'none'
-            }}
-          >
+          <nav style={{ ...layout.sidebar, background: showBg ? 'rgba(20,20,25,0.4)' : layout.sidebar.background, backdropFilter: showBg ? 'blur(12px)' : 'none' }}>
             <NavBtn id="library" icon={<Database size={18}/>} label={t('app.library')} active={activeTab} setter={navTo} />
-            <NavBtn id="tagging" icon={<Tag size={18}/>} label={t('app.manual_tagging')} active={activeTab} count={songs.filter(s => (s.needs_tagging || s.pending_confirmation) && s.status === 'active').length} setter={navTo} />
+            <NavBtn id="tagging" icon={<Tag size={18}/>} label={t('app.manual_tagging')} active={activeTab} count={pendingCount} setter={navTo} />
             {status?.config?.ALLOW_YTDLP && <NavBtn id="discovery" icon={<Download size={18}/>} label={t('app.downloads')} setter={navTo} active={activeTab} />}
             <NavBtn id="jobs" icon={<History size={18}/>} label={t('app.job_history')} active={activeTab} setter={navTo} />
             <NavBtn id="scheduler" icon={<Clock size={18}/>} label={t('app.scheduler')} active={activeTab} setter={navTo} />
-            <NavBtn id="purge" icon={<Trash2 size={18}/>} label={t('app.purge_analysis')} active={activeTab} setter={navTo} />
+            <NavBtn id="purge" icon={<Activity size={18}/>} label={t('app.purge_analysis')} active={activeTab} setter={navTo} />
             <NavBtn id="compilation" icon={<RefreshCw size={18}/>} label={t('app.compilation_merge')} active={activeTab} setter={navTo} />
             <NavBtn id="editor" icon={<Scissors size={18}/>} label={t('app.music_editor')} active={activeTab} setter={navTo} />
             <NavBtn id="settings" icon={<Settings size={18}/>} label={t('app.settings')} active={activeTab} setter={navTo} />
-            
-            {isSidebarOpen && (
-              <div style={{ marginTop: 'auto', padding: '10px 0' }}>
-                <StorageBar storage={status?.storage} />
-              </div>
-            )}
+            <div style={{ marginTop: 'auto', padding: '10px 0' }}><StorageBar storage={status?.storage} /></div>
           </nav>
-        )}
 
-        <section 
-          key={activeTab}
-          className="animate-fade"
-          style={{ 
-            ...layout.content, 
-            padding: isMobile ? 12 : 24,
-            flex: 1,
-            background: showBg ? 'transparent' : layout.content.background
-          }}
-        >
+        <section key={activeTab} className="animate-fade" style={{ ...layout.content, flex: 1, background: showBg ? 'transparent' : layout.content.background }}>
           {activeTab === 'library' && (
             <div style={{ ...layout.grid2, flexDirection: isMobile ? 'column' : 'row' }}>
               <div style={{ flex: 2 }}>
                 <div style={layout.sectionLabel}>Song Library</div>
-                <SongTable songs={songs} playlistMap={playlistMap} />
+                <SongTable playlistMap={playlistMap} config={status?.config} />
               </div>
               <div style={{ width: isMobile ? '100%' : 300 }}>
                 <div style={layout.sectionLabel}>Playlist Protection</div>
@@ -337,58 +243,30 @@ const App = () => {
               </div>
             </div>
           )}
-
-          {activeTab === 'tagging' && <TaggingPanel songs={songs} playlistMap={playlistMap} onUpdate={refreshAll} notify={showNotification} />}
+          {activeTab === 'tagging' && <TaggingPanel config={status?.config} playlistMap={playlistMap} onUpdate={refreshAll} notify={showNotification} />}
           {activeTab === 'discovery' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
               <div style={{ background: 'var(--surface2)', padding: 20, borderRadius: 8 }}>
-                <ManualDownload onJobStarted={fetchSongs} />
+                <ManualDownload onJobStarted={refreshAll} />
               </div>
               <DiscoveryPanel notify={showNotification} />
             </div>
           )}
           {activeTab === 'jobs' && <JobsPanel notify={showNotification} />}
           {activeTab === 'scheduler' && <SchedulerPanel config={status?.config} onUpdate={fetchStatus} notify={showNotification} />}
-          {activeTab === 'purge' && <PurgePreview />}
-          {activeTab === 'compilation' && <CompilationMergePanel onUpdate={refreshAll} notify={showNotification} />}
-          {activeTab === 'editor' && <MusicEditor songs={songs} notify={showNotification} onUpdate={refreshAll} />}
-          {activeTab === 'settings' && <SettingsPanel config={status?.config} onUpdate={fetchStatus} notify={showNotification} onLogout={handleLogout} />}
+          {activeTab === 'purge' && <PurgePreview config={status?.config} />}
+          {activeTab === 'compilation' && <CompilationMergePanel config={status?.config} onUpdate={refreshAll} notify={showNotification} />}
+          {activeTab === 'editor' && <MusicEditor config={status?.config} notify={showNotification} onUpdate={refreshAll} />}
+          {activeTab === 'settings' && <SettingsPanel onUpdate={fetchStatus} notify={showNotification} onLogout={handleLogout} />}
         </section>
       </div>
 
-      <footer 
-        className="animate-slide-up"
-        style={{ 
-          ...layout.footer, 
-          height: isEventsOpen ? 240 : 40, 
-          overflow: 'hidden', 
-          background: showBg ? 'rgba(20,20,25,0.4)' : layout.footer.background, 
-          backdropFilter: showBg ? 'blur(12px)' : 'none',
-          transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        <div 
-          onClick={() => setIsEventsOpen(!isEventsOpen)}
-          style={{ 
-            padding: '8px 24px', background: 'rgba(255,255,255,0.02)', 
-            fontSize: 10, fontWeight: 800, color: 'var(--text-dim)', 
-            cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            height: 40, flexShrink: 0
-          }}
-        >
+      <footer style={{ ...layout.footer, height: isEventsOpen ? 240 : 40, overflow: 'hidden', background: showBg ? 'rgba(20,20,25,0.4)' : layout.footer.background, backdropFilter: showBg ? 'blur(12px)' : 'none', transition: 'height 0.4s ease', display: 'flex', flexDirection: 'column' }}>
+        <div onClick={() => setIsEventsOpen(!isEventsOpen)} style={{ padding: '8px 24px', background: 'rgba(255,255,255,0.02)', fontSize: 10, fontWeight: 800, color: 'var(--text-dim)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 40, flexShrink: 0 }}>
           <span>LIVE EVENTS {isLive ? `(ALIVE V${VERSION_NUMBER})` : '(SSE RECONNECTING...)'}</span>
           <span style={{ transition: 'transform 0.3s ease', transform: isEventsOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}>▼</span>
         </div>
-        <div style={{ 
-          flex: 1,
-          overflowY: 'auto',
-          opacity: isEventsOpen ? 1 : 0,
-          transition: 'opacity 0.2s ease'
-        }}>
-          <LiveLog entries={entries} />
-        </div>
+        <div style={{ flex: 1, overflowY: 'auto', opacity: isEventsOpen ? 1 : 0, transition: 'opacity 0.2s ease' }}><LiveLog entries={entries} /></div>
       </footer>
      </div>
     </div>
