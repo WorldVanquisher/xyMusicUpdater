@@ -7,6 +7,17 @@ from typing import Any, Dict, List, Optional, Tuple
 from django.utils import timezone as dj_tz
 from .utils import _cfg, emit, _normalize_for_match
 
+# Map a download-source identifier to yt-dlp's search prefix. YouTube is the
+# historical default; SoundCloud is a reliable alternative when YouTube
+# extraction is failing (PO tokens, signature challenges, geo blocks).
+_SEARCH_PREFIXES = {
+    "youtube": "ytsearch",
+    "soundcloud": "scsearch",
+}
+
+def _search_prefix(provider: str = "youtube") -> str:
+    return _SEARCH_PREFIXES.get((provider or "youtube").strip().lower(), "ytsearch")
+
 def _is_valid_audio(path: Path) -> bool:
     """Verifies audio file integrity using ffprobe."""
     if not path.exists() or path.stat().st_size == 0:
@@ -310,9 +321,12 @@ def download_url(url: str, job: Optional[Any] = None, allow_playlist: bool = Fal
     )
     return files
 
-def search_media(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+def search_media(query: str, limit: int = 10, provider: Optional[str] = None) -> List[Dict[str, Any]]:
     cfg = _cfg()
-    cmd = ["yt-dlp", "--js-runtimes", "node", "--remote-components", "ejs:github", "--dump-json", "--flat-playlist", f"ytsearch{limit}:{query}"]
+    if not provider:
+        provider = cfg.get("DOWNLOAD_PROVIDER", "youtube")
+    prefix = _search_prefix(provider)
+    cmd = ["yt-dlp", "--js-runtimes", "node", "--remote-components", "ejs:github", "--dump-json", "--flat-playlist", f"{prefix}{limit}:{query}"]
     
     cookies_raw = cfg.get("YTDLP_COOKIES", "").strip()
     cookies_file = None
